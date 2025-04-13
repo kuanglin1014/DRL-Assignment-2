@@ -8,6 +8,25 @@ import matplotlib.pyplot as plt
 import copy
 import random
 import math
+import json
+from collections import defaultdict
+
+
+def rot90(pattern):
+    return [(y, 3 - x) for x, y in pattern]
+
+def rot180(pattern):
+    return [(3 - x, 3 - y) for x, y in pattern]
+
+def rot270(pattern):
+    return [(3 - y, x) for x, y in pattern]
+
+def reflect(pattern):
+    return [(x, 3 - y) for x, y in pattern]
+
+def print_board(board):
+    for row in board:
+        print("\t".join(str(num) if num != 0 else '.' for num in row))
 
 
 class Game2048Env(gym.Env):
@@ -231,9 +250,132 @@ class Game2048Env(gym.Env):
         # If the simulated board is different from the current board, the move is legal
         return not np.array_equal(self.board, temp_board)
 
+class NTupleApproximator:
+    def __init__(self, board_size, patterns):
+        """
+        Initializes the N-Tuple approximator.
+        Hint: you can adjust these if you want
+        """
+        self.board_size = board_size
+        self.patterns = patterns
+        # Create a weight dictionary for each pattern (shared within a pattern group)
+        self.weights = [defaultdict(float) for _ in patterns]
+        # Generate symmetrical transformations for each pattern
+        self.symmetry_patterns = {}
+        for pattern in self.patterns:
+            self.symmetry_patterns[pattern] = self.generate_symmetries(pattern)
+            print(self.symmetry_patterns[pattern])
+
+    def generate_symmetries(self, pattern):
+        # TODO: Generate 8 symmetrical transformations of the given pattern.
+        symmetries = set()
+        symmetries.add(tuple(pattern))
+        #print(tuple(pattern))
+        symmetries.add(tuple(rot90(pattern)))
+        #print(tuple(rot90(pattern)))
+        symmetries.add(tuple(rot180(pattern)))
+        #print(tuple(rot180(pattern)))
+        symmetries.add(tuple(rot270(pattern)))
+        #print(tuple(rot270(pattern)))
+        reflected_pattern = reflect(pattern)
+        symmetries.add(tuple(reflected_pattern))
+        #print(tuple(reflected_pattern))
+        symmetries.add(tuple(rot90(reflected_pattern)))
+        #print(tuple(rot90(reflected_pattern)))
+        symmetries.add(tuple(rot180(reflected_pattern)))
+        #print(tuple(rot180(reflected_pattern)))
+        symmetries.add(tuple(rot270(reflected_pattern)))
+        #print(tuple(rot270(reflected_pattern)))
+        #print(list(symmetries))
+        return list(symmetries)
+
+
+
+    def tile_to_index(self, tile):
+        """
+        Converts tile values to an index for the lookup table.
+        """
+        if tile == 0:
+            return 0
+        else:
+            return int(math.log(tile, 2))
+
+    def get_feature(self, board, coords):
+        # TODO: Extract tile values from the board based on the given coordinates and convert them into a feature tuple.
+        feature = []
+        for x, y in coords:
+            feature.append(self.tile_to_index(board[x][y]))
+        #print(tuple(feature))
+        return tuple(feature)
+
+
+    def value(self, board):
+        # TODO: Estimate the board value: sum the evaluations from all patterns.
+        total_value = 0.0
+        for pattern, weight in zip(self.symmetry_patterns, self.weights):
+            for sym_pattern in self.symmetry_patterns[pattern]:
+              feature = self.get_feature(board, sym_pattern)
+              total_value += weight[feature]
+              #print(feature, weight[feature])
+        #print('total value:',total_value)
+        return total_value
+
+    def update(self, board, delta, alpha):
+        # TODO: Update weights based on the TD error.
+        for pattern, weight in zip(self.symmetry_patterns, self.weights):
+            for sym_pattern in self.symmetry_patterns[pattern]:
+                feature = self.get_feature(board, sym_pattern)
+                weight[feature] += alpha * delta / 8
+
+def hex_to_tuple(s: str):
+    hex_number = hex(int(s))
+    hex_number = hex_number[2:]
+    hex_number = "0" * (6 - len(hex_number)) + hex_number
+    reversed_hex = hex_number[::-1]
+    decimal_values = []
+    for char in reversed_hex:
+        decimal_value = int(char, 16)
+        decimal_values.append(decimal_value)
+
+    return tuple(decimal_values)
+
+patterns = [
+    ((0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)),
+    ((1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)),
+    ((0, 0), (0, 1), (0, 2), (0, 3), (1, 0), (1, 1)),
+    ((1, 0), (1, 1), (1, 2), (1, 3), (2, 0), (2, 1)),
+    ((2, 0), (2, 1), (2, 2), (2, 3), (3, 0), (3, 1)),
+]
+
+approximator = NTupleApproximator(board_size=4, patterns=patterns)
+
+file_path = "weights.json"
+with open(file_path, "r") as file:
+    weight_ = json.load(file)
+
+
+for pid, wt in weight_.items():
+    for s, w in wt.items():
+        t = hex_to_tuple(s)
+        approximator.weights[int(pid)][t] = w
+        #print(t, w)
+
 def get_action(state, score):
     env = Game2048Env()
-    return random.choice([0, 1, 2, 3]) # Choose a random action
+    #return random.choice([0, 1, 2, 3]) # Choose a random action
+    legal_moves = [a for a in range(4) if env.is_move_legal(a)]
+    action_values = []
+    for move in legal_moves:
+        #print('env')
+        #print_board(env.board)
+        temp_env = copy.deepcopy(env)
+        next_state, new_score, done, _ = temp_env.step(move)
+        #print('temp')
+        #print_board(temp_env.board)
+        value = approximator.value(next_state)
+        action_values.append((move, value))
+    best_action = max(action_values, key=lambda x: x[1])[0]
+    return best_action
     
     # You can submit this random agent to evaluate the performance of a purely random strategy.
 
