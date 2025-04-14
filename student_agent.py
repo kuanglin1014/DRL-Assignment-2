@@ -167,13 +167,14 @@ class Game2048Env(gym.Env):
             moved = False
 
         self.last_move_valid = moved  # Record if the move was valid
+        before_add = copy.deepcopy(self.board)
 
         if moved:
             self.add_random_tile()
 
         done = self.is_game_over()
 
-        return self.board, self.score, done, {}
+        return self.board, self.score, done, before_add
 
     def render(self, mode="human", action=None):
         """
@@ -369,10 +370,10 @@ def get_action(state, score):
         #print('env')
         #print_board(env.board)
         temp_env = copy.deepcopy(env)
-        next_state, new_score, done, _ = temp_env.step(move)
+        next_state, new_score, done, before_add = temp_env.step(move)
         #print('temp')
         #print_board(temp_env.board)
-        value = approximator.value(next_state)
+        value = approximator.value(before_add)
         action_values.append((move, value))
     best_action = max(action_values, key=lambda x: x[1])[0]
     return best_action
