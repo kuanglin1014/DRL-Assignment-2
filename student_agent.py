@@ -537,37 +537,45 @@ for pid, wt in weight_.items():
 
 env = Game2048Env()
 td_mcts = TD_MCTS(env, approximator, iterations=135, exploration_constant=1.41, gamma=1, V_norm=10000)
+c = 0
 
 def get_action(state, score):
     #env = Game2048Env()
     #return random.choice([0, 1, 2, 3]) # Choose a random action
-    '''
-    env.board = state.copy()
-    legal_moves = [a for a in range(4) if env.is_move_legal(a)]
-    action_values = []
-    for move in legal_moves:
-        #print('env')
-        #print_board(env.board)
-        temp_env = copy.deepcopy(env)
-        next_state, new_score, done, before_add = temp_env.step(move)
-        #print('temp')
-        #print_board(temp_env.board)
-        value = approximator.value(before_add)
-        action_values.append((move, value))
-    best_action = max(action_values, key=lambda x: x[1])[0]
-    return best_action
-    '''
-    root = TD_MCTS_Node(state)
-
-    # Run multiple simulations to build the MCTS tree
-    for _ in range(td_mcts.iterations):
-        td_mcts.run_simulation(root)
-
-    # Select the best action (based on highest visit count)
-    best_action, _ = td_mcts.best_action_distribution(root)
-
-    return best_action
+    best_action = None
+    if not c:
+        for i in range(4):
+            for j in range(4):
+                if state[i][j]>=8192:
+                    c = 1
     
+        env.board = state.copy()
+        legal_moves = [a for a in range(4) if env.is_move_legal(a)]
+        action_values = []
+        for move in legal_moves:
+            #print('env')
+            #print_board(env.board)
+            temp_env = copy.deepcopy(env)
+            next_state, new_score, done, before_add = temp_env.step(move)
+            #print('temp')
+            #print_board(temp_env.board)
+            value = approximator.value(before_add)
+            action_values.append((move, value))
+        best_action = max(action_values, key=lambda x: x[1])[0]
+        return best_action
+        
+    else:
+        root = TD_MCTS_Node(state)
+
+        # Run multiple simulations to build the MCTS tree
+        for _ in range(td_mcts.iterations):
+            td_mcts.run_simulation(root)
+
+        # Select the best action (based on highest visit count)
+        best_action, _ = td_mcts.best_action_distribution(root)
+
+        return best_action
+        
     # You can submit this random agent to evaluate the performance of a purely random strategy.
 
 
