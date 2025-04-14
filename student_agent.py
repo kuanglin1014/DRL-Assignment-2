@@ -557,7 +557,7 @@ def get_action(state, score):
     best_action = max(action_values, key=lambda x: x[1])[0]
     return best_action
     '''
-    root = TD_MCTS_Node(state, score)
+    root = TD_MCTS_Node(state)
 
     # Run multiple simulations to build the MCTS tree
     for _ in range(td_mcts.iterations):
