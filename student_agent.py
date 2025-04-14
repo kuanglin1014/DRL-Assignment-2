@@ -523,7 +523,7 @@ patterns = [
 
 approximator = NTupleApproximator(board_size=4, patterns=patterns)
 
-file_path = "weights-new.json"
+file_path = "weights-new2.json"
 with open(file_path, "r") as file:
     weight_ = json.load(file)
 
