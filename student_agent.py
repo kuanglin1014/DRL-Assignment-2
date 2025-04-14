@@ -328,6 +328,179 @@ class NTupleApproximator:
                 feature = self.get_feature(board, sym_pattern)
                 weight[feature] += alpha * delta / 8
 
+class TD_MCTS_Node:
+    def __init__(self, state, parent=None, action=None, is_afterstate=False):
+        """
+        state: current board state (numpy array)
+        score: cumulative score at this node
+        parent: parent node (None for root)
+        action: action taken from parent to reach this node
+        """
+        self.state = state.copy()
+        self.parent = parent
+        self.action = action
+        self.is_afterstate = is_afterstate
+        self.children = {}
+        self.visits = 0
+        self.total_reward = 0.0
+        # List of untried actions based on the current state's legal moves
+        if not is_afterstate:
+            env = Game2048Env()
+            env.board = state
+            self.untried_actions = [a for a in range(4) if env.is_move_legal(a)]
+        else:
+            self.untried_actions = []
+
+    def fully_expanded(self):
+        # A node is fully expanded if no legal actions remain untried.
+        return len(self.untried_actions) == 0
+    
+    def is_terminal(self):
+        return len([a for a in range(4) if env.is_move_legal(a)]) == 0
+
+# TD-MCTS class utilizing a trained approximator for leaf evaluation
+class TD_MCTS:
+    def __init__(self, env, approximator, iterations=500, exploration_constant=1.41, rollout_depth=10, gamma=0.99, V_norm=100):
+        self.env = env
+        self.approximator = approximator
+        self.iterations = iterations
+        self.c = exploration_constant
+        self.rollout_depth = rollout_depth
+        self.gamma = gamma
+        self.V_norm = V_norm
+
+    def create_env_from_state(self, state, score):
+        # Create a deep copy of the environment with the given state and score.
+        new_env = copy.deepcopy(self.env)
+        new_env.board = state.copy()
+        new_env.score = score
+        return new_env
+
+    def select_child(self, node):
+        if node.is_afterstate:
+            children = list(node.children.items())
+            probs = [child.prob for _, child in children]
+            selected = random.choices(children, weights=probs, k=1)[0]
+            return selected[1]
+        else:
+            return max(
+                node.children.values(),
+                key=lambda child: (child.total_reward / child.visits + self.c * np.sqrt(np.log(node.visits) / child.visits))
+            )
+
+    def evaluate(self, env):
+        best_value = 0
+        for action in range(4):
+            if env.is_move_legal(action):
+                sim_env = copy.deepcopy(env)
+                next_state, reward, done, after_state = sim_env.step(action)
+                value = self.approximator.value(after_state)
+                best_value = max(best_value, value)
+        return best_value
+
+    def rollout(self, sim_env, depth):
+        # TODO: Perform a random rollout until reaching the maximum depth or a terminal state.
+        # TODO: Use the approximator to evaluate the final state.
+        current_depth = 0
+        value = 0
+        while current_depth < depth:
+            legal_actions = [a for a in range(4) if sim_env.is_move_legal(a)]
+            if not legal_actions:
+                break
+            action = random.choice(legal_actions)
+            state, reward, done, _ = sim_env.step(action)
+            current_depth += 1
+            value = approximator.value(state)
+
+        return value
+
+
+    def backpropagate(self, node, reward):
+        # TODO: Propagate the obtained reward back up the tree.
+        while node is not None:
+            node.visits += 1
+            node.total_reward += reward
+            node = node.parent
+
+    def expand(self, node, sim_env):
+        # Expand all legal player moves (state -> afterstate)
+        if not node.is_afterstate:
+            action = random.choice(node.untried_actions)
+            node.untried_actions.remove(action)
+            next_state, reward, done, after_state = sim_env.step(action)
+            sim_env.board = after_state
+            after_node = TD_MCTS_Node(
+                state=after_state,
+                parent=node,
+                action=action,
+                is_afterstate=True
+            )
+            after_node.total_reward = self.approximator.value(after_state)
+            node.children[action] = after_node
+
+            node = after_node
+
+        empty_cells = [(i, j) for i in range(4) for j in range(4) if node.state[i][j] == 0]
+        if not empty_cells:
+            return node
+        lucky_cell = random.choice(empty_cells)
+        i, j = lucky_cell
+
+        if random.random() < 0.9:
+            sim_env.board[i][j] = 2
+        else:
+            sim_env.board[i][j] = 4
+
+        if (i, j, sim_env.board[i][j]) not in node.children.keys():
+            child_node = TD_MCTS_Node(
+                state=sim_env.board,
+                parent=node,
+                action=None,
+                is_afterstate=False,
+            )
+            node.children[(i, j, sim_env.board[i][j])] = child_node
+
+        return node.children[(i, j, sim_env.board[i][j])]
+
+
+    def run_simulation(self, root):
+        node = root
+        sim_env = self.create_env_from_state(node.state, 0)
+
+        while node.fully_expanded() and node.children:
+            best_node = max(node.children.values(), key=lambda child: (child.total_reward / child.visits + self.c * np.sqrt(np.log(node.visits) / child.visits)))
+            next_state, reward, done, afterstate = sim_env.step(best_node.action)
+            sim_env.board = afterstate
+            node = best_node
+            node = self.expand(node, sim_env)
+
+        # TODO: Expansion: If the node is not terminal, expand an untried action.
+        if node.untried_actions:
+            node = self.expand(node, sim_env)
+        
+        value = self.evaluate(sim_env)
+        norm_value = value / self.V_norm
+
+        # Rollout: Simulate a random game from the expanded node.
+        # rollout_reward = self.rollout(sim_env, self.rollout_depth)
+        # Backpropagate the obtained reward.
+        self.backpropagate(node, norm_value)
+
+    def best_action_distribution(self, root):
+        # Compute the normalized visit count distribution for each child of the root.
+        total_visits = sum(child.visits for child in root.children.values())
+        distribution = np.zeros(4)
+        best_visits = -1
+        best_action = None
+        best_value = -float('inf')
+        for action, child in root.children.items():
+            distribution[action] = child.visits / total_visits if total_visits > 0 else 0
+            if child.visits > best_visits or (child.visits == best_visits and child.total_reward > best_value):
+                best_visits = child.visits
+                best_action = action
+        return best_action, distribution
+
+
 def hex_to_tuple(s: str):
     hex_number = hex(int(s))
     hex_number = hex_number[2:]
@@ -363,10 +536,12 @@ for pid, wt in weight_.items():
             #print(t, w)
 
 env = Game2048Env()
+td_mcts = TD_MCTS(env, approximator, iterations=100, exploration_constant=1.41, gamma=1, V_norm=10000)
 
 def get_action(state, score):
     #env = Game2048Env()
     #return random.choice([0, 1, 2, 3]) # Choose a random action
+    '''
     env.board = state.copy()
     legal_moves = [a for a in range(4) if env.is_move_legal(a)]
     action_values = []
@@ -380,6 +555,17 @@ def get_action(state, score):
         value = approximator.value(before_add)
         action_values.append((move, value))
     best_action = max(action_values, key=lambda x: x[1])[0]
+    return best_action
+    '''
+    root = TD_MCTS_Node(state, score)
+
+    # Run multiple simulations to build the MCTS tree
+    for _ in range(td_mcts.iterations):
+        td_mcts.run_simulation(root)
+
+    # Select the best action (based on highest visit count)
+    best_action, _ = td_mcts.best_action_distribution(root)
+
     return best_action
     
     # You can submit this random agent to evaluate the performance of a purely random strategy.
