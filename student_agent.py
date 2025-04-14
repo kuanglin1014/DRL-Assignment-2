@@ -367,6 +367,7 @@ env = Game2048Env()
 def get_action(state, score):
     #env = Game2048Env()
     #return random.choice([0, 1, 2, 3]) # Choose a random action
+    env.board = state.copy()
     legal_moves = [a for a in range(4) if env.is_move_legal(a)]
     action_values = []
     for move in legal_moves:
