@@ -265,7 +265,7 @@ class NTupleApproximator:
         self.symmetry_patterns = {}
         for pattern in self.patterns:
             self.symmetry_patterns[pattern] = self.generate_symmetries(pattern)
-            print(self.symmetry_patterns[pattern])
+            #print(self.symmetry_patterns[pattern])
 
     def generate_symmetries(self, pattern):
         # TODO: Generate 8 symmetrical transformations of the given pattern.
@@ -359,7 +359,8 @@ for pid, wt in weight_.items():
     for s, w in wt.items():
         t = hex_to_tuple(s)
         approximator.weights[int(pid)][t] = w
-        #print(t, w)
+        if not int(pid) and int(s) < 10:
+        print(t, w)
 
 def get_action(state, score):
     env = Game2048Env()
