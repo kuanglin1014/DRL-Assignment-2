@@ -362,6 +362,8 @@ for pid, wt in weight_.items():
         #if not int(pid) and int(s) < 10:
             #print(t, w)
 
+env = Game2048Env()
+
 def get_action(state, score):
     #env = Game2048Env()
     #return random.choice([0, 1, 2, 3]) # Choose a random action
