@@ -542,6 +542,7 @@ c = 0
 def get_action(state, score):
     #env = Game2048Env()
     #return random.choice([0, 1, 2, 3]) # Choose a random action
+    global c
     best_action = None
     if not c:
         for i in range(4):
@@ -563,7 +564,7 @@ def get_action(state, score):
             action_values.append((move, value))
         best_action = max(action_values, key=lambda x: x[1])[0]
         return best_action
-        
+
     else:
         root = TD_MCTS_Node(state)
 
