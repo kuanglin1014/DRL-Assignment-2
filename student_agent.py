@@ -359,11 +359,11 @@ for pid, wt in weight_.items():
     for s, w in wt.items():
         t = hex_to_tuple(s)
         approximator.weights[int(pid)][t] = w
-        if not int(pid) and int(s) < 10:
-            print(t, w)
+        #if not int(pid) and int(s) < 10:
+            #print(t, w)
 
 def get_action(state, score):
-    env = Game2048Env()
+    #env = Game2048Env()
     #return random.choice([0, 1, 2, 3]) # Choose a random action
     legal_moves = [a for a in range(4) if env.is_move_legal(a)]
     action_values = []
