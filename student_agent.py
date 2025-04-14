@@ -435,7 +435,7 @@ class TD_MCTS:
                 action=action,
                 is_afterstate=True
             )
-            after_node.total_reward = self.approximator.value(after_state)
+            after_node.value = self.approximator.value(after_state)
             node.children[action] = after_node
 
             node = after_node
@@ -468,7 +468,7 @@ class TD_MCTS:
         sim_env = self.create_env_from_state(node.state, 0)
 
         while node.fully_expanded() and node.children:
-            best_node = max(node.children.values(), key=lambda child: (child.total_reward / child.visits + self.c * np.sqrt(np.log(node.visits) / child.visits)))
+            best_node = max(node.children.values(), key=lambda child: (child.total_reward / (child.visits + 1e-6)) + self.c * math.sqrt(math.log(node.visits + 1) / (child.visits + 1e-6)))
             next_state, reward, done, afterstate = sim_env.step(best_node.action)
             sim_env.board = afterstate
             node = best_node
