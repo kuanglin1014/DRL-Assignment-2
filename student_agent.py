@@ -389,12 +389,12 @@ class TD_MCTS:
             )
 
     def evaluate(self, env):
-        best_value = 0
+        best_value = -float('inf')
         for action in range(4):
             if env.is_move_legal(action):
                 sim_env = copy.deepcopy(env)
                 next_state, reward, done, after_state = sim_env.step(action)
-                value = self.approximator.value(after_state)
+                value = self.approximator.value(after_state) + reward
                 best_value = max(best_value, value)
         return best_value
 
@@ -435,7 +435,7 @@ class TD_MCTS:
                 action=action,
                 is_afterstate=True
             )
-            after_node.value = self.approximator.value(after_state)
+            after_node.total_reward = self.approximator.value(after_state)
             node.children[action] = after_node
 
             node = after_node
@@ -443,8 +443,8 @@ class TD_MCTS:
         empty_cells = [(i, j) for i in range(4) for j in range(4) if node.state[i][j] == 0]
         if not empty_cells:
             return node
-        lucky_cell = random.choice(empty_cells)
-        i, j = lucky_cell
+        rand_cell = random.choice(empty_cells)
+        i, j = rand_cell
 
         if random.random() < 0.9:
             sim_env.board[i][j] = 2
@@ -523,7 +523,7 @@ patterns = [
 
 approximator = NTupleApproximator(board_size=4, patterns=patterns)
 
-file_path = "weights.json"
+file_path = "weights-new.json"
 with open(file_path, "r") as file:
     weight_ = json.load(file)
 
@@ -536,7 +536,7 @@ for pid, wt in weight_.items():
             #print(t, w)
 
 env = Game2048Env()
-td_mcts = TD_MCTS(env, approximator, iterations=100, exploration_constant=1.41, gamma=1, V_norm=10000)
+td_mcts = TD_MCTS(env, approximator, iterations=135, exploration_constant=1.41, gamma=1, V_norm=10000)
 
 def get_action(state, score):
     #env = Game2048Env()
