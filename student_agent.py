@@ -498,6 +498,7 @@ class TD_MCTS:
             if child.visits > best_visits or (child.visits == best_visits and child.total_reward > best_value):
                 best_visits = child.visits
                 best_action = action
+                best_value = child.total_reward
         return best_action, distribution
 
 
