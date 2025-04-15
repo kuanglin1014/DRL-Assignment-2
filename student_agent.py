@@ -523,7 +523,7 @@ patterns = [
 
 approximator = NTupleApproximator(board_size=4, patterns=patterns)
 
-file_path = "weights-new2.json"
+file_path = "weights-new3.json"
 with open(file_path, "r") as file:
     weight_ = json.load(file)
 
@@ -536,7 +536,7 @@ for pid, wt in weight_.items():
             #print(t, w)
 
 env = Game2048Env()
-td_mcts = TD_MCTS(env, approximator, iterations=135, exploration_constant=1.41, gamma=1, V_norm=2000)
+td_mcts = TD_MCTS(env, approximator, iterations=135, exploration_constant=1.41, gamma=1, V_norm=10000)
 c = 0
 
 def get_action(state, score):
