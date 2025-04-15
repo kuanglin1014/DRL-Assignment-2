@@ -389,7 +389,7 @@ class TD_MCTS:
             )
 
     def evaluate(self, env):
-        best_value = 0
+        best_value = -float('inf')
         for action in range(4):
             if env.is_move_legal(action):
                 sim_env = copy.deepcopy(env)
